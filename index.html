@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Input Keluhan</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--tg-theme-bg-color, #f4f4f9);
+      color: var(--tg-theme-text-color, #222222);
+      margin: 0;
+      padding: 16px;
+    }
+    .container {
+      max-width: 480px;
+      margin: 0 auto;
+    }
+    h2 {
+      margin-top: 0;
+      font-size: 20px;
+      text-align: center;
+    }
+    .form-group {
+      margin-bottom: 14px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 5px;
+      color: var(--tg-theme-hint-color, #555555);
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid #cccccc;
+      border-radius: 8px;
+      font-size: 14px;
+      box-sizing: border-box;
+      background-color: var(--tg-theme-secondary-bg-color, #ffffff);
+      color: var(--tg-theme-text-color, #000000);
+    }
+    input[readonly] {
+      background-color: #e9ecef;
+      color: #495057;
+      cursor: not-allowed;
+    }
+    textarea {
+      resize: vertical;
+      min-height: 90px;
+    }
+    .row-2 {
+      display: flex;
+      gap: 10px;
+    }
+    .row-2 .form-group {
+      flex: 1;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: var(--tg-theme-button-color, #2481cc);
+      color: var(--tg-theme-button-text-color, #ffffff);
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h2>Form Input Keluhan</h2>
+
+  <form id="laporanForm">
+    <!-- Data Otomatis (Readonly) -->
+    <div class="form-group">
+      <label>Tanggal & Waktu</label>
+      <input type="text" id="tanggal" readonly>
+    </div>
+
+    <div class="row-2">
+      <div class="form-group">
+        <label>ID Pelapor</label>
+        <input type="text" id="idPelapor" readonly placeholder="Memuat...">
+      </div>
+      <div class="form-group">
+        <label>Pelapor</label>
+        <input type="text" id="pelapor" readonly placeholder="Memuat...">
+      </div>
+    </div>
+
+    <!-- Data Manual Diisi User -->
+    <div class="form-group">
+      <label for="namaCustomer">Nama Customer *</label>
+      <input type="text" id="namaCustomer" placeholder="Masukkan nama customer" required>
+    </div>
+
+    <div class="form-group">
+      <label for="namaUnit">Nama Unit *</label>
+      <input type="text" id="namaUnit" placeholder="Contoh: Chiller / Kompor / Mesin Kopi" required>
+    </div>
+
+    <div class="form-group">
+      <label for="keluhan">Keluhan *</label>
+      <textarea id="keluhan" placeholder="Jelaskan detail keluhan atau kerusakan..." required></textarea>
+    </div>
+
+    <button type="submit" id="btnSubmit">Kirim Laporan</button>
+  </form>
+</div>
+
+<script>
+  // TEMPLE URL WEB APP GOOGLE APPS SCRIPT ANDA DI SINI:
+  const GAS_WEBAPP_URL = "https://script.google.com/macros/s/AKfycbyF7K0b0GztITeiAYWgeQZjOBahAMVRkCuFxEGU1pMAFDSm8VkWn-a9jqQ6r0oN6UpQrQ/exec";
+
+  const tg = window.Telegram.WebApp;
+  tg.ready();
+  tg.expand();
+
+  // 1. Isi Tanggal Otomatis Sekarang
+  function updateTanggal() {
+    const now = new Date();
+    const formatted = now.toLocaleDateString('id-ID', {
+      day: '2-digit', month: '2-digit', year: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    document.getElementById('tanggal').value = formatted;
+  }
+  updateTanggal();
+
+  // 2. Ambil & Tampilkan Data User Telegram Otomatis
+  const user = tg.initDataUnsafe?.user;
+  if (user && user.id) {
+    document.getElementById('idPelapor').value = user.id;
+
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
+    const username = user.username ? ` (@${user.username})` : '';
+    document.getElementById('pelapor').value = fullName + username;
+  } else {
+    document.getElementById('idPelapor').value = "Tidak terdeteksi";
+    document.getElementById('pelapor').value = "Buka lewat Telegram";
+  }
+
+  // 3. Kirim Data ke Google Apps Script menggunakan fetch
+  document.getElementById('laporanForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+
+    if (!tg.initData) {
+      alert("Error: Form ini harus dibuka melalui aplikasi Telegram!");
+      return;
+    }
+
+    const btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    btn.innerText = "Menyimpan...";
+
+    const payload = {
+      initData: tg.initData,
+      namaCustomer: document.getElementById('namaCustomer').value.trim(),
+      namaUnit: document.getElementById('namaUnit').value.trim(),
+      keluhan: document.getElementById('keluhan').value.trim()
+    };
+
+    try {
+      // Menggunakan text/plain agar terhindar dari blokir CORS preflight browser ke Google Apps Script
+      const response = await fetch(GAS_WEBAPP_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "text/plain;charset=utf-8"
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const res = await response.json();
+
+      if (res.status === "success") {
+        tg.showAlert(res.message, function() {
+          tg.close();
+        });
+      } else {
+        tg.showAlert("Gagal: " + res.message);
+        btn.disabled = false;
+        btn.innerText = "Kirim Laporan";
+      }
+    } catch (err) {
+      tg.showAlert("Error jaringan: " + err.message);
+      btn.disabled = false;
+      btn.innerText = "Kirim Laporan";
+    }
+  });
+</script>
+
+</body>
+</html>
