@@ -145,7 +145,7 @@
 
     const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
     const username = user.username ? ` (@${user.username})` : '';
-    document.getElementById('pelapor').value = fullName + username;
+    document.getElementById('pelapor').value = fullName ;
   } else {
     document.getElementById('idPelapor').value = "Tidak terdeteksi";
     document.getElementById('pelapor').value = "Buka lewat Telegram";
